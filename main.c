@@ -32,10 +32,12 @@ typedef struct {
 } MenuState;
 
 typedef struct {
-  MenuState menu;
-  Screen currScreen;
-  KeyLayout currLayout;
+  MenuState *menu;
+  Screen *currScreen;
+  KeyLayout *currLayout;
 } EmulState;
+
+void gameLoop(void);
 
 void initMenuState(MenuState *menu) {
   struct dirent *de;
@@ -108,7 +110,7 @@ void processInputMenu(MenuState *menu, Cpu *cpu, Screen *screen) {
 void processInput(Cpu *cpu, EmulState *emul) {
 
   for (size_t i = 0; i < KEYS; i++) {
-    switch (emul->currLayout) {
+    switch (*emul->currLayout) {
     case QWERTZ:
       if (IsKeyDown(KEY_CODES_QWERTZ[i])) {
         cpu->keypad[i] = 1;
@@ -126,7 +128,7 @@ void processInput(Cpu *cpu, EmulState *emul) {
   }
 
   for (size_t i = 0; i < KEYS; i++) {
-    switch (emul->currLayout) {
+    switch (*emul->currLayout) {
     case QWERTZ:
       if (IsKeyUp(KEY_CODES_QWERTZ[i])) {
         cpu->keypad[i] = 0;
@@ -144,7 +146,8 @@ void processInput(Cpu *cpu, EmulState *emul) {
   }
 
   if (IsKeyPressed(KEY_M)) {
-    emul->currScreen = MENU;
+    printf("Pressed m\n");
+    *emul->currScreen = MENU;
   }
 }
 
@@ -159,87 +162,85 @@ void drawEmulScreen(Cpu *cpu, int scale) {
   }
 }
 
+static EmulState emul = {0};
+static Cpu cpu = {0};
+static int lastFrameTime = 0;
+const static int scale = 15;
+const static int delay = 1;
+const static int cyclesPerFrame = 10;
+
 int main(int argc, char **argv) {
-
-  if (argc != 3) {
-    printf("Program must have 3 arguments\n");
-    exit(1);
-  }
-
   printf("Starting the application\n");
-  int scale = atoi(argv[1]);
-  int delay = atoi(argv[2]);
-  // char const *romName = argv[3];
 
   InitWindow(VIDEO_WIDTH * scale, VIDEO_HEIGHT * scale, "Chip8");
 
-  Cpu cpu = {0};
   cpu.pc = START_ADDRESS;
-  int cyclePerFrame = 10;
 
   loadFont(&cpu);
-  // loadRom(&cpu);
 
   Screen currScreen = MENU;
 
   int currentFps = 60;
-  int lastFrameTime = GetTime();
+  lastFrameTime = GetTime();
 
   MenuState menu = {0};
   initMenuState(&menu);
   KeyLayout currLayout = QWERTY;
 
-  EmulState emul = (EmulState){
-      .menu = menu, .currScreen = currScreen, .currLayout = currLayout};
+  emul = (EmulState){
+      .menu = &menu, .currScreen = &currScreen, .currLayout = &currLayout};
   printf("Menu state %s\n", menu.roms[2].romName);
 
   SetTargetFPS(currentFps);
 
   while (!WindowShouldClose()) {
-
-    switch (currScreen) {
-    case EMUL:
-      double currTime = GetTime();
-      double deltaTime = currTime - lastFrameTime;
-      processInput(&cpu, &emul);
-
-      static double timerAccum = 0.0;
-      timerAccum += deltaTime;
-
-      while (timerAccum >= (1.0 / 60.0)) {
-        if (cpu.delayTimer > 0)
-          cpu.delayTimer--;
-        if (cpu.soundTimer > 0)
-          cpu.soundTimer--;
-        timerAccum -= (1.0 / 60.0);
-      }
-
-      size_t i;
-      for (i = 0; i < cyclePerFrame; i++) {
-        cpuCycle(&cpu);
-      }
-
-      BeginDrawing();
-      ClearBackground(BLACK);
-      drawEmulScreen(&cpu, scale);
-      EndDrawing();
-      break;
-    case CONTROLS:
-
-      break;
-
-    case MENU:
-
-      processInputMenu(&menu, &cpu, &currScreen);
-
-      BeginDrawing();
-      ClearBackground(BLACK);
-      drawMenuScreen(&menu);
-      EndDrawing();
-      break;
-    }
+    gameLoop();
   }
 
   CloseWindow();
   return 0;
+}
+
+void gameLoop() {
+  switch (*(emul.currScreen)) {
+  case EMUL:
+    double currTime = GetTime();
+    double deltaTime = currTime - lastFrameTime;
+    processInput(&cpu, &emul);
+
+    static double timerAccum = 0.0;
+    timerAccum += deltaTime;
+
+    while (timerAccum >= (1.0 / 60.0)) {
+      if (cpu.delayTimer > 0)
+        cpu.delayTimer--;
+      if (cpu.soundTimer > 0)
+        cpu.soundTimer--;
+      timerAccum -= (1.0 / 60.0);
+    }
+
+    size_t i;
+    for (i = 0; i < cyclesPerFrame; i++) {
+      cpuCycle(&cpu);
+    }
+
+    BeginDrawing();
+    ClearBackground(BLACK);
+    drawEmulScreen(&cpu, scale);
+    EndDrawing();
+    break;
+  case CONTROLS:
+
+    break;
+
+  case MENU:
+
+    processInputMenu(emul.menu, &cpu, emul.currScreen);
+
+    BeginDrawing();
+    ClearBackground(BLACK);
+    drawMenuScreen(emul.menu);
+    EndDrawing();
+    break;
+  }
 }
