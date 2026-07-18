@@ -168,15 +168,17 @@ static int lastFrameTime = 0;
 const static int scale = 15;
 const static int delay = 1;
 const static int cyclesPerFrame = 10;
+static Sound fx;
 
 int main(int argc, char **argv) {
   printf("Starting the application\n");
 
   InitWindow(VIDEO_WIDTH * scale, VIDEO_HEIGHT * scale, "Chip8");
-
+  InitAudioDevice();
   cpu.pc = START_ADDRESS;
 
   loadFont(&cpu);
+  fx = LoadSound("./sounds/sounddesign.ogg");
 
   Screen currScreen = MENU;
 
@@ -191,11 +193,14 @@ int main(int argc, char **argv) {
       .menu = &menu, .currScreen = &currScreen, .currLayout = &currLayout};
   printf("Menu state %s\n", menu.roms[2].romName);
 
+#if defined(PLATFORM_WEB)
+  emscripten_set_main_loop(gameLoop, 0, 1);
+#else
   SetTargetFPS(currentFps);
-
   while (!WindowShouldClose()) {
     gameLoop();
   }
+#endif
 
   CloseWindow();
   return 0;
@@ -214,8 +219,10 @@ void gameLoop() {
     while (timerAccum >= (1.0 / 60.0)) {
       if (cpu.delayTimer > 0)
         cpu.delayTimer--;
-      if (cpu.soundTimer > 0)
+      if (cpu.soundTimer > 0) {
         cpu.soundTimer--;
+        PlaySound(fx);
+      }
       timerAccum -= (1.0 / 60.0);
     }
 
