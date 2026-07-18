@@ -3,6 +3,7 @@
 #ifndef __CPU_H__
 #define __CPU_H__
 
+#include <raylib.h>
 #include <stdint.h>
 
 #define REGISTER_SIZE 16
@@ -34,8 +35,25 @@ typedef struct {
   u16 opcode;
 } Cpu;
 
-static const int KEY_CODES[KEYS] = {88, 49, 50, 51, 81, 87, 69, 20,
-                                    83, 68, 90, 67, 52, 82, 70, 86};
+/*
+ * |1| |2| |3| |4|
+ * |q| |w| |e| |r|
+ * |a| |s| |d| |f|
+ * |z| |x| |c| |v|
+ */
+static const int KEY_CODES_QWERTY[KEYS] = {
+    KEY_ONE, KEY_TWO, KEY_THREE, KEY_FOUR, KEY_Q, KEY_W, KEY_E, KEY_R,
+    KEY_A,   KEY_S,   KEY_D,     KEY_F,    KEY_Z, KEY_X, KEY_C, KEY_V};
+
+/*
+ * |1| |2| |3| |4|
+ * |q| |w| |e| |r|
+ * |a| |s| |d| |f|
+ * |y| |x| |c| |v|
+ */
+static const int KEY_CODES_QWERTZ[KEYS] = {
+    KEY_ONE, KEY_TWO, KEY_THREE, KEY_FOUR, KEY_Q, KEY_W, KEY_E, KEY_R,
+    KEY_A,   KEY_S,   KEY_D,     KEY_F,    KEY_Y, KEY_X, KEY_C, KEY_V};
 
 static const u8 FONTSET[FONTSET_SIZE] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0, 0x20, 0x60, 0x20, 0x20, 0x70, 0xF0, 0x10,

@@ -1,5 +1,8 @@
 #include "cpu.h"
 #include "raylib.h"
+#if defined(PLATFORM_WEB)
+#include <emscripten/emscripten.h>
+#endif
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +18,11 @@ typedef enum {
   EMUL,
 } Screen;
 
+typedef enum {
+  QWERTZ,
+  QWERTY,
+} KeyLayout;
+
 typedef struct {
   struct ROM {
     char *romName;
@@ -22,6 +30,12 @@ typedef struct {
   } roms[MENU_SIZE];
   int pointer;
 } MenuState;
+
+typedef struct {
+  MenuState menu;
+  Screen currScreen;
+  KeyLayout currLayout;
+} EmulState;
 
 void initMenuState(MenuState *menu) {
   struct dirent *de;
@@ -91,22 +105,46 @@ void processInputMenu(MenuState *menu, Cpu *cpu, Screen *screen) {
   }
 }
 
-void processInput(Cpu *cpu, Screen *screen) {
+void processInput(Cpu *cpu, EmulState *emul) {
 
   for (size_t i = 0; i < KEYS; i++) {
-    if (IsKeyDown(KEY_CODES[i])) {
-      cpu->keypad[i] = 1;
+    switch (emul->currLayout) {
+    case QWERTZ:
+      if (IsKeyDown(KEY_CODES_QWERTZ[i])) {
+        cpu->keypad[i] = 1;
+      }
+      break;
+    case QWERTY:
+      if (IsKeyDown(KEY_CODES_QWERTY[i])) {
+        cpu->keypad[i] = 1;
+      }
+      break;
+    default:
+      printf("No such Keyboard layout\n");
+      break;
     }
   }
 
   for (size_t i = 0; i < KEYS; i++) {
-    if (IsKeyUp(KEY_CODES[i])) {
-      cpu->keypad[i] = 0;
+    switch (emul->currLayout) {
+    case QWERTZ:
+      if (IsKeyUp(KEY_CODES_QWERTZ[i])) {
+        cpu->keypad[i] = 0;
+      }
+      break;
+    case QWERTY:
+      if (IsKeyUp(KEY_CODES_QWERTY[i])) {
+        cpu->keypad[i] = 0;
+      }
+      break;
+    default:
+      printf("No such Keyboard layout\n");
+      break;
     }
   }
 
   if (IsKeyPressed(KEY_M)) {
-    *screen = MENU;
+    emul->currScreen = MENU;
   }
 }
 
@@ -123,7 +161,7 @@ void drawEmulScreen(Cpu *cpu, int scale) {
 
 int main(int argc, char **argv) {
 
-  if (argc != 4) {
+  if (argc != 3) {
     printf("Program must have 3 arguments\n");
     exit(1);
   }
@@ -131,7 +169,7 @@ int main(int argc, char **argv) {
   printf("Starting the application\n");
   int scale = atoi(argv[1]);
   int delay = atoi(argv[2]);
-  char const *romName = argv[3];
+  // char const *romName = argv[3];
 
   InitWindow(VIDEO_WIDTH * scale, VIDEO_HEIGHT * scale, "Chip8");
 
@@ -140,17 +178,19 @@ int main(int argc, char **argv) {
   int cyclePerFrame = 10;
 
   loadFont(&cpu);
-  loadRom(&cpu, romName);
+  // loadRom(&cpu);
 
   Screen currScreen = MENU;
 
   int currentFps = 60;
   int lastFrameTime = GetTime();
 
-  int romPointer = 0;
   MenuState menu = {0};
   initMenuState(&menu);
+  KeyLayout currLayout = QWERTY;
 
+  EmulState emul = (EmulState){
+      .menu = menu, .currScreen = currScreen, .currLayout = currLayout};
   printf("Menu state %s\n", menu.roms[2].romName);
 
   SetTargetFPS(currentFps);
@@ -161,7 +201,7 @@ int main(int argc, char **argv) {
     case EMUL:
       double currTime = GetTime();
       double deltaTime = currTime - lastFrameTime;
-      processInput(&cpu, &currScreen);
+      processInput(&cpu, &emul);
 
       static double timerAccum = 0.0;
       timerAccum += deltaTime;
